@@ -6,6 +6,6 @@ members = [
 ]
 
 [profile.release]
-opt-level = 'z'
+opt-level = "z"
 lto = true
 codegen-units = 1

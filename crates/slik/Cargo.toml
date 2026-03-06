@@ -4,6 +4,8 @@ version = "0.1.0"
 edition = "2021"
 description = "A motion.dev-inspired animation framework for Leptos"
 license = "MIT"
+readme = "../../README.md"
+homepage = "https://wavyte.com"
 keywords = ["leptos", "animation", "spring", "motion", "wasm"]
 
 [dependencies]
