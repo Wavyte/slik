@@ -1,0 +1,25 @@
+[package]
+name = "slick"
+version = "0.1.0"
+edition = "2021"
+description = "A motion.dev-inspired animation framework for Leptos"
+license = "MIT"
+keywords = ["leptos", "animation", "spring", "motion", "wasm"]
+
+[dependencies]
+leptos = { version = "0.8" }
+web-sys = { version = "0.3", features = [
+    "Window",
+    "HtmlElement",
+    "CssStyleDeclaration",
+] }
+wasm-bindgen = "0.2"
+js-sys = "0.3"
+
+[profile.dev]
+debug = 0
+
+[features]
+csr = ["leptos/csr"]
+hydrate = ["leptos/hydrate"]
+ssr = ["leptos/ssr"]

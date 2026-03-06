@@ -1,0 +1,11 @@
+# Dev-mode optimization: erase component type info for faster compilation.
+# Remove these flags for release builds.
+
+[target.wasm32-unknown-unknown]
+rustflags = ["--cfg", "erase_components"]
+
+# Uncomment your native target for `cargo test` / `cargo check` speed:
+# [target.x86_64-unknown-linux-gnu]
+# rustflags = ["--cfg", "erase_components"]
+# [target.aarch64-apple-darwin]
+# rustflags = ["--cfg", "erase_components"]

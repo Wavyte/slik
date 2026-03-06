@@ -1,0 +1,13 @@
+# Trunk build config for the showcase example
+# Run: trunk serve --open
+
+[build]
+target = "examples/showcase/index.html"
+dist = "dist"
+
+[watch]
+watch = ["crates", "examples"]
+
+[serve]
+address = "127.0.0.1"
+port = 8080

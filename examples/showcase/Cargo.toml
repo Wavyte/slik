@@ -1,0 +1,12 @@
+[package]
+name = "showcase"
+version = "0.1.0"
+edition = "2021"
+
+[profile.dev]
+debug = 0
+
+[dependencies]
+slick = { path = "../../crates/slick", features = ["csr"] }
+leptos = { version = "0.8", features = ["csr"] }
+console_error_panic_hook = "0.1"
