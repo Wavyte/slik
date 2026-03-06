@@ -7,6 +7,6 @@ edition = "2021"
 debug = 0
 
 [dependencies]
-slick = { path = "../../crates/slick", features = ["csr"] }
+slik = { path = "../../crates/slik", features = ["csr"] }
 leptos = { version = "0.8", features = ["csr"] }
 console_error_panic_hook = "0.1"

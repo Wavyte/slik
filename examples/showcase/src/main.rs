@@ -1,9 +1,5 @@
 use leptos::prelude::*;
-use slick::prelude::*;
-
-// ---------------------------------------------------------------------------
-// 1. Mount animation — fade + slide
-// ---------------------------------------------------------------------------
+use slik::prelude::*;
 
 #[component]
 fn EntryAnimation() -> impl IntoView {
@@ -12,16 +8,12 @@ fn EntryAnimation() -> impl IntoView {
             initial=AnimProps::new().opacity(0.0).y(30.0)
             animate=AnimProps::new().opacity(1.0).y(0.0)
             transition=TransitionConfig::new(Transition::spring())
-                .with("opacity", Transition::tween(0.5, Easing::EaseOut))
+                .with(MotionProp::Opacity, Transition::tween(0.5, Easing::EaseOut))
         >
             <p>"I fade in and slide up on mount (spring Y + tween opacity)"</p>
         </Motion>
     }
 }
-
-// ---------------------------------------------------------------------------
-// 2. Reactive hover — spring scale + lift
-// ---------------------------------------------------------------------------
 
 #[component]
 fn HoverScale() -> impl IntoView {
@@ -48,10 +40,6 @@ fn HoverScale() -> impl IntoView {
     }
 }
 
-// ---------------------------------------------------------------------------
-// 3. Bezier tween toggle
-// ---------------------------------------------------------------------------
-
 #[component]
 fn TweenFade() -> impl IntoView {
     let visible = RwSignal::new(true);
@@ -70,56 +58,47 @@ fn TweenFade() -> impl IntoView {
         </button>
         <Motion
             animate=target
-            transition=TransitionConfig::new(
-                Transition::tween(0.35, Easing::EaseInOut)
-            )
+            transition=TransitionConfig::new(Transition::tween(0.35, Easing::EaseInOut))
         >
             <p style="margin-top:0.5rem">"Bezier tween: opacity + translateX"</p>
         </Motion>
     }
 }
 
-// ---------------------------------------------------------------------------
-// 4. Keyframe bounce
-// ---------------------------------------------------------------------------
-
 #[component]
-fn KeyframeBounce() -> impl IntoView {
+fn KeyframePulse() -> impl IntoView {
     let active = RwSignal::new(false);
 
     let target = Memo::new(move |_| {
         if active.get() {
-            AnimProps::new().y(-50.0)
+            AnimProps::new().scale(1.18)
         } else {
-            AnimProps::new().y(0.0)
+            AnimProps::new().scale(1.0)
         }
     });
 
-    // Keyframes describe the *shape* of the animation curve through value-space.
-    // offset 0→0, 0.4→1 (overshoot), 0.7→0.85 (settle back), 1.0→1 (final)
-    let transition = TransitionConfig::new(Transition::keyframes(
-        vec![
-            Keyframe { offset: 0.0, value: 0.0,  easing: Easing::Linear },
-            Keyframe { offset: 0.4, value: 1.15, easing: Easing::EaseOut },
-            Keyframe { offset: 0.7, value: 0.9,  easing: Easing::EaseInOut },
-            Keyframe { offset: 1.0, value: 1.0,  easing: Easing::EaseOut },
-        ],
-        0.6,
-    ));
+    let transition = TransitionConfig::new(
+        Transition::keyframes(
+            vec![
+                Keyframe::current(0.0),
+                Keyframe::absolute(0.35, 1.24).ease(Easing::EaseOut),
+                Keyframe::absolute(0.7, 1.06).ease(Easing::EaseInOut),
+                Keyframe::target(1.0).ease(Easing::EaseOut),
+            ],
+            0.55,
+        )
+        .expect("valid pulse keyframes"),
+    );
 
     view! {
         <button on:click=move |_| active.update(|v| *v = !*v)>
-            "Bounce"
+            "Pulse"
         </button>
         <Motion animate=target transition=transition>
-            <div style="width:50px; height:50px; background:coral; border-radius:50%; margin-top:0.5rem" />
+            <div style="width:56px; height:56px; background:coral; border-radius:14px; margin-top:0.75rem" />
         </Motion>
     }
 }
-
-// ---------------------------------------------------------------------------
-// 5. Low-level AnimatedSignal counter
-// ---------------------------------------------------------------------------
 
 #[component]
 fn AnimatedCounter() -> impl IntoView {
@@ -141,10 +120,6 @@ fn AnimatedCounter() -> impl IntoView {
     }
 }
 
-// ---------------------------------------------------------------------------
-// 6. Per-property transition overrides
-// ---------------------------------------------------------------------------
-
 #[component]
 fn MixedTransitions() -> impl IntoView {
     let expanded = RwSignal::new(false);
@@ -158,8 +133,8 @@ fn MixedTransitions() -> impl IntoView {
     });
 
     let transition = TransitionConfig::new(Transition::spring_bouncy())
-        .with("opacity", Transition::tween(0.4, Easing::EaseOut))
-        .with("rotate", Transition::tween(0.6, Easing::Snappy));
+        .with(MotionProp::Opacity, Transition::tween(0.4, Easing::EaseOut))
+        .with(MotionProp::Rotate, Transition::tween(0.6, Easing::Snappy));
 
     view! {
         <button on:click=move |_| expanded.update(|v| *v = !*v)>
@@ -171,15 +146,11 @@ fn MixedTransitions() -> impl IntoView {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Root
-// ---------------------------------------------------------------------------
-
 #[component]
 fn App() -> impl IntoView {
     view! {
         <main style="max-width:640px; margin:2rem auto; font-family:system-ui,-apple-system,sans-serif; padding:0 1rem">
-            <h1 style="margin-bottom:2rem">"Slick — Animation Showcase"</h1>
+            <h1 style="margin-bottom:2rem">"Slik — Animation Showcase"</h1>
 
             <Section title="1. Entry Animation (initial → animate)">
                 <EntryAnimation />
@@ -190,8 +161,8 @@ fn App() -> impl IntoView {
             <Section title="3. Tween Fade (cubic bézier)">
                 <TweenFade />
             </Section>
-            <Section title="4. Keyframe Bounce">
-                <KeyframeBounce />
+            <Section title="4. Keyframe Pulse">
+                <KeyframePulse />
             </Section>
             <Section title="5. Animated Counter (low-level AnimatedSignal)">
                 <AnimatedCounter />
