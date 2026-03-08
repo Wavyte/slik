@@ -2,25 +2,27 @@
 //!
 //! A Motion-inspired animation framework for Leptos.
 //!
-//! Springs, tweens, and keyframes are exposed as reactive primitives and a
-//! declarative `<Motion>` component.
+//! v0.2 centers on a scalar motion runtime, arbitrary-element `NodeRef` binding,
+//! and thin component sugar over the binder.
 
-pub mod animated;
 pub mod bezier;
+pub mod bind;
 pub mod driver;
 pub mod easing;
-pub mod motion;
-pub mod props;
-pub mod scheduler;
+pub mod html;
+pub mod motion_value;
+pub mod runtime;
+pub mod style;
 pub mod transition;
 
 pub mod prelude {
-    pub use crate::animated::AnimatedSignal;
-    pub use crate::driver::{
-        Keyframe, KeyframeError, KeyframeTransition, KeyframeValue, SpringDriver, TweenDriver,
+    pub use crate::bind::{
+        use_motion, use_reduced_motion, MotionHandle, MotionOptions, MotionValues,
+        ReducedMotionConfig,
     };
+    pub use crate::driver::{Keyframe, KeyframeError, KeyframeTransition, KeyframeValue};
     pub use crate::easing::Easing;
-    pub use crate::motion::Motion;
-    pub use crate::props::{AnimProps, MotionProp};
-    pub use crate::transition::{Transition, TransitionConfig};
+    pub use crate::motion_value::MotionValue;
+    pub use crate::style::{MotionProp, MotionStyle};
+    pub use crate::transition::{Transition, TransitionMap};
 }

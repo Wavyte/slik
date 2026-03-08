@@ -1,7 +1,6 @@
 use crate::bezier::CubicBezier;
 
-#[derive(Debug, Clone, Copy, PartialEq)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub enum Easing {
     Linear,
     #[default]
@@ -32,4 +31,3 @@ impl Easing {
         self.to_bezier().solve(t)
     }
 }
-

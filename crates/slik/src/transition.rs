@@ -1,10 +1,6 @@
-#[cfg(not(target_arch = "wasm32"))]
-use crate::driver::KeyframeTransition;
-#[cfg(target_arch = "wasm32")]
-use crate::driver::{Driver, KeyframeTransition, SpringDriver, TweenDriver};
-use crate::driver::{Keyframe, KeyframeError};
+use crate::driver::{Keyframe, KeyframeError, KeyframeTransition};
 use crate::easing::Easing;
-use crate::props::MotionProp;
+use crate::style::MotionProp;
 
 #[derive(Debug, Clone)]
 pub enum Transition {
@@ -66,21 +62,6 @@ impl Transition {
             duration_secs,
         )?))
     }
-
-    #[cfg(target_arch = "wasm32")]
-    pub(crate) fn create_driver(&self) -> Box<dyn Driver> {
-        match self {
-            Self::Spring {
-                stiffness,
-                damping,
-                mass,
-            } => Box::new(SpringDriver::new(*stiffness, *damping, *mass)),
-            Self::Tween { duration, easing } => Box::new(TweenDriver::new(*duration, *easing)),
-            Self::Keyframes(transition) => {
-                Box::new(crate::driver::KeyframeDriver::new(transition.clone()))
-            }
-        }
-    }
 }
 
 impl Default for Transition {
@@ -89,56 +70,61 @@ impl Default for Transition {
     }
 }
 
-#[derive(Debug, Clone, Default)]
-pub struct TransitionConfig {
-    pub default: Transition,
-    pub opacity: Option<Transition>,
-    pub x: Option<Transition>,
-    pub y: Option<Transition>,
-    pub scale: Option<Transition>,
-    pub scale_x: Option<Transition>,
-    pub scale_y: Option<Transition>,
-    pub rotate: Option<Transition>,
+#[derive(Debug, Clone)]
+pub struct TransitionMap {
+    default: Transition,
+    per_prop: [Option<Transition>; MotionProp::COUNT],
 }
 
-impl TransitionConfig {
+impl TransitionMap {
     pub fn new(default: Transition) -> Self {
         Self {
             default,
-            ..Default::default()
+            per_prop: std::array::from_fn(|_| None),
         }
     }
 
     pub fn with(mut self, prop: MotionProp, transition: Transition) -> Self {
-        match prop {
-            MotionProp::Opacity => self.opacity = Some(transition),
-            MotionProp::X => self.x = Some(transition),
-            MotionProp::Y => self.y = Some(transition),
-            MotionProp::Scale => self.scale = Some(transition),
-            MotionProp::ScaleX => self.scale_x = Some(transition),
-            MotionProp::ScaleY => self.scale_y = Some(transition),
-            MotionProp::Rotate => self.rotate = Some(transition),
-        }
+        self.per_prop[prop.index()] = Some(transition);
         self
     }
 
     pub fn for_prop(&self, prop: MotionProp) -> Transition {
-        let specific = match prop {
-            MotionProp::Opacity => &self.opacity,
-            MotionProp::X => &self.x,
-            MotionProp::Y => &self.y,
-            MotionProp::Scale => &self.scale,
-            MotionProp::ScaleX => &self.scale_x,
-            MotionProp::ScaleY => &self.scale_y,
-            MotionProp::Rotate => &self.rotate,
-        };
-
-        specific.clone().unwrap_or_else(|| self.default.clone())
+        self.per_prop[prop.index()]
+            .clone()
+            .unwrap_or_else(|| self.default.clone())
     }
 }
 
-impl From<Transition> for TransitionConfig {
+impl Default for TransitionMap {
+    fn default() -> Self {
+        Self::new(Transition::default())
+    }
+}
+
+impl From<Transition> for TransitionMap {
     fn from(transition: Transition) -> Self {
         Self::new(transition)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn transition_map_uses_default_and_override() {
+        let map = TransitionMap::new(Transition::spring())
+            .with(MotionProp::Opacity, Transition::tween(0.2, Easing::EaseOut));
+
+        match map.for_prop(MotionProp::Opacity) {
+            Transition::Tween { duration, .. } => assert_eq!(duration, 0.2),
+            _ => panic!("expected tween"),
+        }
+
+        match map.for_prop(MotionProp::X) {
+            Transition::Spring { .. } => {}
+            _ => panic!("expected spring"),
+        }
     }
 }

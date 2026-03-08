@@ -1,17 +1,95 @@
+#![cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
+
 use crate::bezier::CubicBezier;
 use crate::easing::Easing;
+use crate::transition::Transition;
 use std::error::Error;
 use std::fmt;
 
-pub trait Driver: Send + Sync {
-    fn tick(&mut self, dt: f64);
-    fn value(&self) -> f64;
-    fn is_done(&self) -> bool;
-    fn set_target(&mut self, current_value: f64, new_target: f64);
+#[derive(Debug, Clone)]
+pub(crate) enum ActiveAnimation {
+    Spring(SpringState),
+    Tween(TweenState),
+    Keyframes(KeyframeState),
+}
+
+impl ActiveAnimation {
+    pub(crate) fn from_transition(transition: &Transition) -> Self {
+        match transition {
+            Transition::Spring {
+                stiffness,
+                damping,
+                mass,
+            } => Self::Spring(SpringState::new(*stiffness, *damping, *mass)),
+            Transition::Tween { duration, easing } => {
+                Self::Tween(TweenState::new(*duration, *easing))
+            }
+            Transition::Keyframes(transition) => {
+                Self::Keyframes(KeyframeState::new(transition.clone()))
+            }
+        }
+    }
+
+    pub(crate) fn set_target(
+        &mut self,
+        transition: &Transition,
+        current_value: f64,
+        new_target: f64,
+    ) {
+        match (self, transition) {
+            (
+                Self::Spring(state),
+                Transition::Spring {
+                    stiffness,
+                    damping,
+                    mass,
+                },
+            ) => {
+                state.reconfigure(*stiffness, *damping, *mass);
+                state.set_target(current_value, new_target);
+            }
+            (Self::Tween(state), Transition::Tween { duration, easing }) => {
+                state.reconfigure(*duration, *easing);
+                state.set_target(current_value, new_target);
+            }
+            (Self::Keyframes(state), Transition::Keyframes(transition)) => {
+                state.reconfigure(transition.clone());
+                state.set_target(current_value, new_target);
+            }
+            (animation, transition) => {
+                *animation = Self::from_transition(transition);
+                animation.set_target(transition, current_value, new_target);
+            }
+        }
+    }
+
+    pub(crate) fn tick(&mut self, dt: f64) {
+        match self {
+            Self::Spring(state) => state.tick(dt),
+            Self::Tween(state) => state.tick(dt),
+            Self::Keyframes(state) => state.tick(dt),
+        }
+    }
+
+    pub(crate) fn value(&self) -> f64 {
+        match self {
+            Self::Spring(state) => state.value(),
+            Self::Tween(state) => state.value(),
+            Self::Keyframes(state) => state.value(),
+        }
+    }
+
+    pub(crate) fn is_done(&self) -> bool {
+        match self {
+            Self::Spring(state) => state.is_done(),
+            Self::Tween(state) => state.is_done(),
+            Self::Keyframes(state) => state.is_done(),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
-pub struct SpringDriver {
+pub(crate) struct SpringState {
     x: f64,
     v: f64,
     target: f64,
@@ -22,8 +100,8 @@ pub struct SpringDriver {
     done: bool,
 }
 
-impl SpringDriver {
-    pub fn new(stiffness: f64, damping: f64, mass: f64) -> Self {
+impl SpringState {
+    pub(crate) fn new(stiffness: f64, damping: f64, mass: f64) -> Self {
         Self {
             x: 0.0,
             v: 0.0,
@@ -36,20 +114,12 @@ impl SpringDriver {
         }
     }
 
-    pub fn bouncy() -> Self {
-        Self::new(120.0, 14.0, 1.0)
+    fn reconfigure(&mut self, stiffness: f64, damping: f64, mass: f64) {
+        self.stiffness = stiffness;
+        self.damping = damping;
+        self.mass = mass;
     }
 
-    pub fn snappy() -> Self {
-        Self::new(170.0, 26.0, 1.0)
-    }
-
-    pub fn gentle() -> Self {
-        Self::new(170.0, 60.0, 1.0)
-    }
-}
-
-impl Driver for SpringDriver {
     fn tick(&mut self, dt: f64) {
         if self.done {
             return;
@@ -89,7 +159,7 @@ impl Driver for SpringDriver {
 }
 
 #[derive(Debug, Clone)]
-pub struct TweenDriver {
+pub(crate) struct TweenState {
     from: f64,
     to: f64,
     elapsed: f64,
@@ -98,8 +168,8 @@ pub struct TweenDriver {
     done: bool,
 }
 
-impl TweenDriver {
-    pub fn new(duration: f64, easing: Easing) -> Self {
+impl TweenState {
+    pub(crate) fn new(duration: f64, easing: Easing) -> Self {
         Self {
             from: 0.0,
             to: 0.0,
@@ -109,9 +179,12 @@ impl TweenDriver {
             done: true,
         }
     }
-}
 
-impl Driver for TweenDriver {
+    fn reconfigure(&mut self, duration: f64, easing: Easing) {
+        self.duration = duration;
+        self.bezier = easing.to_bezier();
+    }
+
     fn tick(&mut self, dt: f64) {
         if self.done {
             return;
@@ -134,7 +207,6 @@ impl Driver for TweenDriver {
         } else {
             1.0
         };
-
         let progress = self.bezier.solve(t);
         self.from + (self.to - self.from) * progress
     }
@@ -300,7 +372,7 @@ impl KeyframeTransition {
 }
 
 #[derive(Debug, Clone)]
-pub struct KeyframeDriver {
+pub(crate) struct KeyframeState {
     transition: KeyframeTransition,
     elapsed: f64,
     beziers: Vec<CubicBezier>,
@@ -308,8 +380,8 @@ pub struct KeyframeDriver {
     done: bool,
 }
 
-impl KeyframeDriver {
-    pub fn new(transition: KeyframeTransition) -> Self {
+impl KeyframeState {
+    pub(crate) fn new(transition: KeyframeTransition) -> Self {
         let beziers = transition
             .keyframes
             .windows(2)
@@ -323,6 +395,15 @@ impl KeyframeDriver {
             resolved_values: Vec::new(),
             done: true,
         }
+    }
+
+    fn reconfigure(&mut self, transition: KeyframeTransition) {
+        self.beziers = transition
+            .keyframes
+            .windows(2)
+            .map(|pair| pair[1].easing.to_bezier())
+            .collect();
+        self.transition = transition;
     }
 
     fn segment_for(&self, global_t: f64) -> usize {
@@ -341,9 +422,7 @@ impl KeyframeDriver {
             KeyframeValue::Absolute(value) => value,
         }
     }
-}
 
-impl Driver for KeyframeDriver {
     fn tick(&mut self, dt: f64) {
         if self.done {
             return;
@@ -409,7 +488,7 @@ mod tests {
 
     #[test]
     fn spring_converges() {
-        let mut spring = SpringDriver::snappy();
+        let mut spring = SpringState::new(170.0, 26.0, 1.0);
         spring.set_target(0.0, 100.0);
         for _ in 0..600 {
             spring.tick(1.0 / 60.0);
@@ -420,7 +499,7 @@ mod tests {
 
     #[test]
     fn tween_completes_at_duration() {
-        let mut tween = TweenDriver::new(0.3, Easing::Linear);
+        let mut tween = TweenState::new(0.3, Easing::Linear);
         tween.set_target(0.0, 10.0);
         tween.tick(0.35);
         assert!(tween.is_done());
@@ -429,7 +508,7 @@ mod tests {
 
     #[test]
     fn tween_midpoint_with_linear() {
-        let mut tween = TweenDriver::new(1.0, Easing::Linear);
+        let mut tween = TweenState::new(1.0, Easing::Linear);
         tween.set_target(0.0, 100.0);
         tween.tick(0.5);
         assert!((tween.value() - 50.0).abs() < 0.5);
@@ -447,7 +526,7 @@ mod tests {
         )
         .unwrap();
 
-        let mut driver = KeyframeDriver::new(transition);
+        let mut driver = KeyframeState::new(transition);
         driver.set_target(0.0, 20.0);
         driver.tick(0.5);
         assert!((driver.value() - 100.0).abs() < 1e-6);

@@ -14,12 +14,20 @@ all-features = true
 [dependencies]
 leptos = { version = "0.8" }
 web-sys = { version = "0.3", features = [
+    "Document",
+    "Element",
     "Window",
     "HtmlElement",
     "CssStyleDeclaration",
+    "MediaQueryList",
+    "MediaQueryListEvent",
 ] }
 wasm-bindgen = "0.2"
 js-sys = "0.3"
+
+[target.'cfg(target_arch = "wasm32")'.dev-dependencies]
+wasm-bindgen-test = "0.3"
+wasm-bindgen-futures = "0.4"
 
 [profile.dev]
 debug = 0

@@ -1,0 +1,316 @@
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum MotionProp {
+    Opacity,
+    X,
+    Y,
+    Scale,
+    ScaleX,
+    ScaleY,
+    Rotate,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Unit {
+    None,
+    Px,
+    Deg,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct PropMeta {
+    default: f64,
+    unit: Unit,
+    css_name: &'static str,
+}
+
+const PROP_META: [PropMeta; MotionProp::COUNT] = [
+    PropMeta {
+        default: 1.0,
+        unit: Unit::None,
+        css_name: "opacity",
+    },
+    PropMeta {
+        default: 0.0,
+        unit: Unit::Px,
+        css_name: "translateX",
+    },
+    PropMeta {
+        default: 0.0,
+        unit: Unit::Px,
+        css_name: "translateY",
+    },
+    PropMeta {
+        default: 1.0,
+        unit: Unit::None,
+        css_name: "scale",
+    },
+    PropMeta {
+        default: 1.0,
+        unit: Unit::None,
+        css_name: "scaleX",
+    },
+    PropMeta {
+        default: 1.0,
+        unit: Unit::None,
+        css_name: "scaleY",
+    },
+    PropMeta {
+        default: 0.0,
+        unit: Unit::Deg,
+        css_name: "rotate",
+    },
+];
+
+impl MotionProp {
+    pub const COUNT: usize = 7;
+    pub const ALL: [Self; Self::COUNT] = [
+        Self::Opacity,
+        Self::X,
+        Self::Y,
+        Self::Scale,
+        Self::ScaleX,
+        Self::ScaleY,
+        Self::Rotate,
+    ];
+
+    pub const fn index(self) -> usize {
+        match self {
+            Self::Opacity => 0,
+            Self::X => 1,
+            Self::Y => 2,
+            Self::Scale => 3,
+            Self::ScaleX => 4,
+            Self::ScaleY => 5,
+            Self::Rotate => 6,
+        }
+    }
+
+    pub const fn default_value(self) -> f64 {
+        PROP_META[self.index()].default
+    }
+    const fn unit(self) -> Unit {
+        PROP_META[self.index()].unit
+    }
+}
+
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct MotionStyle {
+    values: [Option<f64>; MotionProp::COUNT],
+}
+
+impl MotionStyle {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn set(mut self, prop: MotionProp, value: f64) -> Self {
+        self.values[prop.index()] = Some(value);
+        self
+    }
+
+    pub fn get(&self, prop: MotionProp) -> Option<f64> {
+        self.values[prop.index()]
+    }
+
+    pub fn contains(&self, prop: MotionProp) -> bool {
+        self.get(prop).is_some()
+    }
+
+    pub fn value_or_default(&self, prop: MotionProp) -> f64 {
+        self.get(prop).unwrap_or_else(|| prop.default_value())
+    }
+
+    pub fn iter_present(&self) -> impl Iterator<Item = (MotionProp, f64)> + '_ {
+        MotionProp::ALL
+            .into_iter()
+            .filter_map(|prop| self.get(prop).map(|value| (prop, value)))
+    }
+
+    pub fn opacity(self, v: f64) -> Self {
+        self.set(MotionProp::Opacity, v)
+    }
+
+    pub fn x(self, v: f64) -> Self {
+        self.set(MotionProp::X, v)
+    }
+
+    pub fn y(self, v: f64) -> Self {
+        self.set(MotionProp::Y, v)
+    }
+
+    pub fn scale(self, v: f64) -> Self {
+        self.set(MotionProp::Scale, v)
+    }
+
+    pub fn scale_x(self, v: f64) -> Self {
+        self.set(MotionProp::ScaleX, v)
+    }
+
+    pub fn scale_y(self, v: f64) -> Self {
+        self.set(MotionProp::ScaleY, v)
+    }
+
+    pub fn rotate(self, v: f64) -> Self {
+        self.set(MotionProp::Rotate, v)
+    }
+}
+
+#[derive(Debug, Clone, Default, PartialEq)]
+pub(crate) struct ComposedDomStyle {
+    pub opacity: Option<String>,
+    pub transform: Option<String>,
+    pub will_change: Option<String>,
+}
+
+#[inline]
+pub(crate) const fn prop_bit(prop: MotionProp) -> u16 {
+    1_u16 << prop.index()
+}
+
+#[inline]
+pub(crate) const fn owns_prop(mask: u16, prop: MotionProp) -> bool {
+    (mask & prop_bit(prop)) != 0
+}
+
+pub(crate) fn mask_for_style(style: &MotionStyle) -> u16 {
+    let mut mask = 0;
+    for prop in MotionProp::ALL {
+        if style.contains(prop) {
+            mask |= prop_bit(prop);
+        }
+    }
+    mask
+}
+
+pub(crate) fn compose_dom_style(mask: u16, values: &[f64; MotionProp::COUNT]) -> ComposedDomStyle {
+    let opacity = if owns_prop(mask, MotionProp::Opacity) {
+        Some(format_value(
+            MotionProp::Opacity,
+            values[MotionProp::Opacity.index()],
+        ))
+    } else {
+        None
+    };
+
+    let mut transforms = Vec::with_capacity(4);
+
+    if owns_prop(mask, MotionProp::X) {
+        transforms.push(format!(
+            "{}({})",
+            PROP_META[MotionProp::X.index()].css_name,
+            format_value(MotionProp::X, values[MotionProp::X.index()])
+        ));
+    }
+    if owns_prop(mask, MotionProp::Y) {
+        transforms.push(format!(
+            "{}({})",
+            PROP_META[MotionProp::Y.index()].css_name,
+            format_value(MotionProp::Y, values[MotionProp::Y.index()])
+        ));
+    }
+    if owns_prop(mask, MotionProp::Scale)
+        || owns_prop(mask, MotionProp::ScaleX)
+        || owns_prop(mask, MotionProp::ScaleY)
+    {
+        let scale = values[MotionProp::Scale.index()];
+        let scale_x = if owns_prop(mask, MotionProp::ScaleX) {
+            values[MotionProp::ScaleX.index()]
+        } else {
+            1.0
+        };
+        let scale_y = if owns_prop(mask, MotionProp::ScaleY) {
+            values[MotionProp::ScaleY.index()]
+        } else {
+            1.0
+        };
+        transforms.push(format!("scale({}, {})", scale * scale_x, scale * scale_y));
+    }
+    if owns_prop(mask, MotionProp::Rotate) {
+        transforms.push(format!(
+            "{}({})",
+            PROP_META[MotionProp::Rotate.index()].css_name,
+            format_value(MotionProp::Rotate, values[MotionProp::Rotate.index()])
+        ));
+    }
+
+    let transform = if transforms.is_empty() {
+        None
+    } else {
+        Some(transforms.join(" "))
+    };
+
+    let mut will_change = Vec::with_capacity(2);
+    if opacity.is_some() {
+        will_change.push("opacity");
+    }
+    if transform.is_some() {
+        will_change.push("transform");
+    }
+
+    ComposedDomStyle {
+        opacity,
+        transform,
+        will_change: if will_change.is_empty() {
+            None
+        } else {
+            Some(will_change.join(", "))
+        },
+    }
+}
+
+fn format_value(prop: MotionProp, value: f64) -> String {
+    match prop.unit() {
+        Unit::None => value.to_string(),
+        Unit::Px => format!("{value}px"),
+        Unit::Deg => format!("{value}deg"),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn style_builders_write_dense_storage() {
+        let style = MotionStyle::new().opacity(0.5).x(12.0).rotate(45.0);
+        assert_eq!(style.get(MotionProp::Opacity), Some(0.5));
+        assert_eq!(style.get(MotionProp::X), Some(12.0));
+        assert_eq!(style.get(MotionProp::Rotate), Some(45.0));
+        assert!(!style.contains(MotionProp::Scale));
+    }
+
+    #[test]
+    fn mask_tracks_owned_props() {
+        let style = MotionStyle::new().opacity(0.5).scale(1.2);
+        let mask = mask_for_style(&style);
+        assert!(owns_prop(mask, MotionProp::Opacity));
+        assert!(owns_prop(mask, MotionProp::Scale));
+        assert!(!owns_prop(mask, MotionProp::Rotate));
+    }
+
+    #[test]
+    fn compose_dom_style_uses_fixed_transform_order() {
+        let mut values = [0.0; MotionProp::COUNT];
+        values[MotionProp::Opacity.index()] = 0.8;
+        values[MotionProp::X.index()] = 10.0;
+        values[MotionProp::Y.index()] = -3.0;
+        values[MotionProp::Scale.index()] = 1.2;
+        values[MotionProp::ScaleX.index()] = 0.5;
+        values[MotionProp::Rotate.index()] = 90.0;
+        let mask = prop_bit(MotionProp::Opacity)
+            | prop_bit(MotionProp::X)
+            | prop_bit(MotionProp::Y)
+            | prop_bit(MotionProp::Scale)
+            | prop_bit(MotionProp::ScaleX)
+            | prop_bit(MotionProp::Rotate);
+
+        let style = compose_dom_style(mask, &values);
+
+        assert_eq!(style.opacity.as_deref(), Some("0.8"));
+        assert_eq!(
+            style.transform.as_deref(),
+            Some("translateX(10px) translateY(-3px) scale(0.6, 1.2) rotate(90deg)")
+        );
+        assert_eq!(style.will_change.as_deref(), Some("opacity, transform"));
+    }
+}
