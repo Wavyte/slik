@@ -6,20 +6,23 @@ use leptos::prelude::*;
 pub struct MotionValue {
     slot_id: SlotId,
     current: RwSignal<f64>,
+    animating: RwSignal<bool>,
     last_target: RwSignal<f64>,
 }
 
 impl MotionValue {
     pub fn new(initial: f64, transition: Transition) -> Self {
         let current = RwSignal::new(initial);
+        let animating = RwSignal::new(false);
         let last_target = RwSignal::new(initial);
-        let slot_id = runtime::register(current, transition);
+        let slot_id = runtime::register(current, animating, transition);
 
         on_cleanup(move || runtime::unregister(slot_id));
 
         Self {
             slot_id,
             current,
+            animating,
             last_target,
         }
     }
@@ -37,6 +40,16 @@ impl MotionValue {
     #[inline]
     pub fn target(&self) -> f64 {
         self.last_target.get_untracked()
+    }
+
+    #[inline]
+    pub fn is_animating(&self) -> bool {
+        self.animating.get()
+    }
+
+    #[inline]
+    pub fn is_animating_untracked(&self) -> bool {
+        self.animating.get_untracked()
     }
 
     pub fn set_target(&self, target: f64) {
@@ -68,13 +81,25 @@ impl MotionValue {
 
     fn set_target_internal(&self, target: f64, immediate: bool) {
         let current_value = self.current.get_untracked();
-        let previous_target = self.last_target.get_untracked();
+        let is_animating = self.animating.get_untracked();
+        self.last_target.set(target);
 
-        if (target - previous_target).abs() < f64::EPSILON {
+        if immediate {
+            if !same_value(current_value, target) || is_animating {
+                runtime::jump(self.slot_id, target);
+            }
             return;
         }
 
-        self.last_target.set(target);
+        if same_value(current_value, target) && !is_animating {
+            return;
+        }
+
         runtime::start_animation(self.slot_id, current_value, target, immediate);
     }
+}
+
+#[inline]
+fn same_value(left: f64, right: f64) -> bool {
+    (left - right).abs() <= 1.0e-9
 }

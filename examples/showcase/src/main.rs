@@ -13,7 +13,7 @@ fn BinderEntry() -> impl IntoView {
             transition: TransitionMap::new(Transition::spring())
                 .with(
                     MotionProp::Opacity,
-                    Transition::tween(0.45, Easing::EaseOut),
+                    Transition::tween(0.45, Easing::EaseOut).unwrap(),
                 )
                 .into(),
             reduced_motion: MaybeProp::default(),
@@ -70,7 +70,9 @@ fn TweenFade() -> impl IntoView {
             <button on:click=move |_| visible.update(|v| *v = !*v)>"Toggle"</button>
             <MotionP
                 animate=target
-                transition=TransitionMap::new(Transition::tween(0.35, Easing::EaseInOut))
+                transition=TransitionMap::new(
+                    Transition::tween(0.35, Easing::EaseInOut).unwrap(),
+                )
                 attr:style="margin:0"
             >
                 "Bezier tween: opacity plus translateX"
@@ -149,9 +151,12 @@ fn MixedTransitions() -> impl IntoView {
     let transitions = TransitionMap::new(Transition::spring_bouncy())
         .with(
             MotionProp::Opacity,
-            Transition::tween(0.35, Easing::EaseOut),
+            Transition::tween(0.35, Easing::EaseOut).unwrap(),
         )
-        .with(MotionProp::Rotate, Transition::tween(0.55, Easing::Snappy));
+        .with(
+            MotionProp::Rotate,
+            Transition::tween(0.55, Easing::Snappy).unwrap(),
+        );
 
     view! {
         <div style="display:flex; gap:0.75rem; align-items:center; flex-wrap:wrap">
@@ -187,6 +192,45 @@ fn ReducedMotionExample() -> impl IntoView {
             />
             <span style="font-size:0.95rem; color:#4b5563">
                 "ReducedMotionConfig::Always forces immediate updates"
+            </span>
+        </div>
+    }
+}
+
+#[component]
+fn MotionButtonExample() -> impl IntoView {
+    let active = RwSignal::new(false);
+    let target = Signal::derive(move || {
+        if active.get() {
+            MotionStyle::new().scale(1.06).y(-2.0).rotate(-2.0)
+        } else {
+            MotionStyle::new().scale(1.0).y(0.0).rotate(0.0)
+        }
+    });
+
+    let transition = TransitionMap::new(Transition::spring_bouncy()).with(
+        MotionProp::Rotate,
+        Transition::tween(0.22, Easing::EaseOut).unwrap(),
+    );
+
+    view! {
+        <div style="display:flex; gap:0.75rem; align-items:center; flex-wrap:wrap">
+            <MotionButton
+                animate=target
+                transition=transition
+                on:click=move |_| active.update(|value| *value = !*value)
+                attr:style="padding:0.75rem 1rem; border:none; border-radius:12px; background:#2563eb; color:white; cursor:pointer; font-weight:600"
+            >
+                {move || {
+                    if active.get() {
+                        "MotionButton: active"
+                    } else {
+                        "MotionButton: click me"
+                    }
+                }}
+            </MotionButton>
+            <span style="font-size:0.95rem; color:#4b5563">
+                "The sugar layer still yields a real interactive button."
             </span>
         </div>
     }
@@ -239,13 +283,9 @@ fn App() -> impl IntoView {
             <Section title="7. Reduced motion policy">
                 <ReducedMotionExample />
             </Section>
-
-            <MotionButton
-                animate=MotionStyle::new().opacity(1.0)
-                attr:style="padding:0.75rem 1rem; border:none; border-radius:12px; background:#2563eb; color:white; cursor:pointer"
-            >
-                "MotionButton forwards attributes to a real button"
-            </MotionButton>
+            <Section title="8. Interactive motion button">
+                <MotionButtonExample />
+            </Section>
         </MotionMain>
     }
 }

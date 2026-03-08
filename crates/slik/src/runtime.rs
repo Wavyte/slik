@@ -8,6 +8,7 @@ pub(crate) type SlotId = usize;
 
 struct Slot {
     output: RwSignal<f64>,
+    animating: RwSignal<bool>,
     transition: Transition,
     #[cfg(target_arch = "wasm32")]
     active: Option<ActiveAnimation>,
@@ -34,9 +35,15 @@ impl Runtime {
         }
     }
 
-    fn register(&mut self, output: RwSignal<f64>, transition: Transition) -> SlotId {
+    fn register(
+        &mut self,
+        output: RwSignal<f64>,
+        animating: RwSignal<bool>,
+        transition: Transition,
+    ) -> SlotId {
         let slot = Slot {
             output,
+            animating,
             transition,
             #[cfg(target_arch = "wasm32")]
             active: None,
@@ -54,7 +61,8 @@ impl Runtime {
 
     fn unregister(&mut self, id: SlotId) {
         if let Some(entry) = self.slots.get_mut(id) {
-            if entry.take().is_some() {
+            if let Some(slot) = entry.take() {
+                slot.animating.set(false);
                 self.free_list.push(id);
             }
         }
@@ -72,6 +80,7 @@ impl Runtime {
             {
                 slot.active = None;
             }
+            slot.animating.set(false);
             slot.output.set(value);
         }
     }
@@ -80,10 +89,13 @@ impl Runtime {
         #[cfg(target_arch = "wasm32")]
         if let Some(Some(slot)) = self.slots.get_mut(id) {
             slot.active = None;
+            slot.animating.set(false);
         }
 
         #[cfg(not(target_arch = "wasm32"))]
-        let _ = id;
+        {
+            let _ = id;
+        }
     }
 
     #[cfg(target_arch = "wasm32")]
@@ -100,6 +112,13 @@ impl Runtime {
         }
 
         if let Some(Some(slot)) = self.slots.get_mut(id) {
+            if !slot.transition.is_runtime_valid() {
+                slot.active = None;
+                slot.animating.set(false);
+                slot.output.set(new_target);
+                return;
+            }
+
             match &mut slot.active {
                 Some(active) => {
                     active.set_target(&slot.transition, current_value, new_target);
@@ -110,6 +129,22 @@ impl Runtime {
                     slot.active = Some(active);
                 }
             }
+
+            if slot
+                .active
+                .as_ref()
+                .map(ActiveAnimation::is_done)
+                .unwrap_or(true)
+            {
+                if let Some(active) = &slot.active {
+                    slot.output.set(active.value());
+                }
+                slot.active = None;
+                slot.animating.set(false);
+                return;
+            }
+
+            slot.animating.set(true);
         }
     }
 
@@ -127,6 +162,7 @@ impl Runtime {
 
                 if done {
                     slot.active = None;
+                    slot.animating.set(false);
                 } else {
                     any_active = true;
                 }
@@ -141,8 +177,12 @@ thread_local! {
     static RUNTIME: RefCell<Runtime> = RefCell::new(Runtime::new());
 }
 
-pub(crate) fn register(output: RwSignal<f64>, transition: Transition) -> SlotId {
-    RUNTIME.with(|runtime| runtime.borrow_mut().register(output, transition))
+pub(crate) fn register(
+    output: RwSignal<f64>,
+    animating: RwSignal<bool>,
+    transition: Transition,
+) -> SlotId {
+    RUNTIME.with(|runtime| runtime.borrow_mut().register(output, animating, transition))
 }
 
 pub(crate) fn unregister(id: SlotId) {

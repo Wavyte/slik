@@ -1,3 +1,6 @@
+pub use crate::reduced_motion::use_reduced_motion;
+
+use crate::dom_target::style_for_node;
 use crate::motion_value::MotionValue;
 use crate::style::{
     compose_dom_style, mask_for_style, owns_prop, prop_bit, MotionProp, MotionStyle,
@@ -5,7 +8,7 @@ use crate::style::{
 use crate::transition::TransitionMap;
 use leptos::prelude::*;
 use leptos::tachys::html::element::ElementType;
-use wasm_bindgen::JsCast;
+use wasm_bindgen::{JsCast, JsValue};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum ReducedMotionConfig {
@@ -46,7 +49,7 @@ pub struct MotionOptions {
 pub fn use_motion<E>(node_ref: NodeRef<E>, options: MotionOptions) -> MotionHandle
 where
     E: ElementType + 'static,
-    E::Output: JsCast + Clone + 'static,
+    E::Output: AsRef<JsValue> + JsCast + Clone + 'static,
 {
     let first_animate = options.animate.get_untracked();
     let seeded = options
@@ -97,20 +100,26 @@ where
         let Some(node) = node_ref.get() else {
             return;
         };
-        let element = node.unchecked_into::<web_sys::HtmlElement>();
         let mask = owned_mask.get();
+        let mut active_mask = 0;
         let mut current = [0.0; MotionProp::COUNT];
 
         for prop in MotionProp::ALL {
             current[prop.index()] = if owns_prop(mask, prop) {
-                values.get(prop).get()
+                let value = values.get(prop);
+                if value.is_animating() {
+                    active_mask |= prop_bit(prop);
+                }
+                value.get()
             } else {
                 prop.default_value()
             };
         }
 
-        let composed = compose_dom_style(mask, &current);
-        let style = element.style();
+        let Some(style) = style_for_node(&node) else {
+            return;
+        };
+        let composed = compose_dom_style(mask, active_mask, &current);
 
         patch_style_property(&style, "opacity", composed.opacity.as_deref());
         patch_style_property(&style, "transform", composed.transform.as_deref());
@@ -119,45 +128,6 @@ where
 
     MotionHandle { values }
 }
-
-pub fn use_reduced_motion() -> Signal<bool> {
-    #[cfg(not(target_arch = "wasm32"))]
-    {
-        return RwSignal::new(false).into();
-    }
-
-    #[cfg(target_arch = "wasm32")]
-    {
-        let reduced = RwSignal::new(browser_prefers_reduced_motion());
-
-        if let Some(window) = web_sys::window() {
-            if let Ok(Some(media_query)) = window.match_media("(prefers-reduced-motion: reduce)") {
-                let signal = reduced;
-                let tracked_query = media_query.clone();
-                let callback =
-                    wasm_bindgen::closure::Closure::wrap(Box::new(move |_event: web_sys::Event| {
-                        signal.set(tracked_query.matches());
-                    })
-                        as Box<dyn FnMut(web_sys::Event)>);
-
-                media_query.set_onchange(Some(callback.as_ref().unchecked_ref()));
-                callback.forget();
-            }
-        }
-
-        reduced.into()
-    }
-}
-
-#[cfg(target_arch = "wasm32")]
-fn browser_prefers_reduced_motion() -> bool {
-    web_sys::window()
-        .and_then(|window| window.match_media("(prefers-reduced-motion: reduce)").ok())
-        .flatten()
-        .map(|query| query.matches())
-        .unwrap_or(false)
-}
-
 fn patch_style_property(style: &web_sys::CssStyleDeclaration, name: &str, value: Option<&str>) {
     match value {
         Some(value) => {

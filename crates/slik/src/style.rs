@@ -182,8 +182,12 @@ pub(crate) fn mask_for_style(style: &MotionStyle) -> u16 {
     mask
 }
 
-pub(crate) fn compose_dom_style(mask: u16, values: &[f64; MotionProp::COUNT]) -> ComposedDomStyle {
-    let opacity = if owns_prop(mask, MotionProp::Opacity) {
+pub(crate) fn compose_dom_style(
+    owned_mask: u16,
+    active_mask: u16,
+    values: &[f64; MotionProp::COUNT],
+) -> ComposedDomStyle {
+    let opacity = if owns_prop(owned_mask, MotionProp::Opacity) {
         Some(format_value(
             MotionProp::Opacity,
             values[MotionProp::Opacity.index()],
@@ -194,38 +198,38 @@ pub(crate) fn compose_dom_style(mask: u16, values: &[f64; MotionProp::COUNT]) ->
 
     let mut transforms = Vec::with_capacity(4);
 
-    if owns_prop(mask, MotionProp::X) {
+    if owns_prop(owned_mask, MotionProp::X) {
         transforms.push(format!(
             "{}({})",
             PROP_META[MotionProp::X.index()].css_name,
             format_value(MotionProp::X, values[MotionProp::X.index()])
         ));
     }
-    if owns_prop(mask, MotionProp::Y) {
+    if owns_prop(owned_mask, MotionProp::Y) {
         transforms.push(format!(
             "{}({})",
             PROP_META[MotionProp::Y.index()].css_name,
             format_value(MotionProp::Y, values[MotionProp::Y.index()])
         ));
     }
-    if owns_prop(mask, MotionProp::Scale)
-        || owns_prop(mask, MotionProp::ScaleX)
-        || owns_prop(mask, MotionProp::ScaleY)
+    if owns_prop(owned_mask, MotionProp::Scale)
+        || owns_prop(owned_mask, MotionProp::ScaleX)
+        || owns_prop(owned_mask, MotionProp::ScaleY)
     {
         let scale = values[MotionProp::Scale.index()];
-        let scale_x = if owns_prop(mask, MotionProp::ScaleX) {
+        let scale_x = if owns_prop(owned_mask, MotionProp::ScaleX) {
             values[MotionProp::ScaleX.index()]
         } else {
             1.0
         };
-        let scale_y = if owns_prop(mask, MotionProp::ScaleY) {
+        let scale_y = if owns_prop(owned_mask, MotionProp::ScaleY) {
             values[MotionProp::ScaleY.index()]
         } else {
             1.0
         };
         transforms.push(format!("scale({}, {})", scale * scale_x, scale * scale_y));
     }
-    if owns_prop(mask, MotionProp::Rotate) {
+    if owns_prop(owned_mask, MotionProp::Rotate) {
         transforms.push(format!(
             "{}({})",
             PROP_META[MotionProp::Rotate.index()].css_name,
@@ -240,10 +244,10 @@ pub(crate) fn compose_dom_style(mask: u16, values: &[f64; MotionProp::COUNT]) ->
     };
 
     let mut will_change = Vec::with_capacity(2);
-    if opacity.is_some() {
+    if owns_prop(active_mask, MotionProp::Opacity) {
         will_change.push("opacity");
     }
-    if transform.is_some() {
+    if transform_group_active(active_mask) {
         will_change.push("transform");
     }
 
@@ -256,6 +260,15 @@ pub(crate) fn compose_dom_style(mask: u16, values: &[f64; MotionProp::COUNT]) ->
             Some(will_change.join(", "))
         },
     }
+}
+
+fn transform_group_active(mask: u16) -> bool {
+    owns_prop(mask, MotionProp::X)
+        || owns_prop(mask, MotionProp::Y)
+        || owns_prop(mask, MotionProp::Scale)
+        || owns_prop(mask, MotionProp::ScaleX)
+        || owns_prop(mask, MotionProp::ScaleY)
+        || owns_prop(mask, MotionProp::Rotate)
 }
 
 fn format_value(prop: MotionProp, value: f64) -> String {
@@ -304,7 +317,7 @@ mod tests {
             | prop_bit(MotionProp::ScaleX)
             | prop_bit(MotionProp::Rotate);
 
-        let style = compose_dom_style(mask, &values);
+        let style = compose_dom_style(mask, mask, &values);
 
         assert_eq!(style.opacity.as_deref(), Some("0.8"));
         assert_eq!(
@@ -312,5 +325,20 @@ mod tests {
             Some("translateX(10px) translateY(-3px) scale(0.6, 1.2) rotate(90deg)")
         );
         assert_eq!(style.will_change.as_deref(), Some("opacity, transform"));
+    }
+
+    #[test]
+    fn compose_dom_style_only_marks_active_groups_for_will_change() {
+        let mut values = [0.0; MotionProp::COUNT];
+        values[MotionProp::Opacity.index()] = 0.8;
+        values[MotionProp::X.index()] = 10.0;
+        let owned_mask = prop_bit(MotionProp::Opacity) | prop_bit(MotionProp::X);
+        let active_mask = prop_bit(MotionProp::X);
+
+        let style = compose_dom_style(owned_mask, active_mask, &values);
+
+        assert_eq!(style.opacity.as_deref(), Some("0.8"));
+        assert_eq!(style.transform.as_deref(), Some("translateX(10px)"));
+        assert_eq!(style.will_change.as_deref(), Some("transform"));
     }
 }

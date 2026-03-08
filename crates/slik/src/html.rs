@@ -3,237 +3,85 @@ use crate::style::MotionStyle;
 use crate::transition::TransitionMap;
 use leptos::attribute_interceptor::AttributeInterceptor;
 use leptos::prelude::*;
+use leptos::tachys::html::element::ElementType;
+use wasm_bindgen::{JsCast, JsValue};
 
-#[component]
-pub fn MotionDiv(
-    #[prop(optional)] initial: Option<Signal<MotionStyle>>,
-    #[prop(into)] animate: Signal<MotionStyle>,
-    #[prop(into, optional)] transition: MaybeProp<TransitionMap>,
-    #[prop(into, optional)] reduced_motion: MaybeProp<ReducedMotionConfig>,
-    #[prop(optional)] children: Option<ChildrenFn>,
-) -> impl IntoView {
-    let node_ref = NodeRef::<leptos::html::Div>::new();
-    let _motion = use_motion(
-        node_ref,
-        MotionOptions {
-            initial,
-            animate,
-            transition,
-            reduced_motion,
-        },
-    );
-
-    view! {
-        <AttributeInterceptor let:attrs>
-            <div node_ref={node_ref} {..attrs}>{children.as_ref().map(|children| children())}</div>
-        </AttributeInterceptor>
-    }
+fn prepare_motion_node<E>(options: MotionOptions) -> NodeRef<E>
+where
+    E: ElementType + 'static,
+    E::Output: AsRef<JsValue> + JsCast + Clone + 'static,
+{
+    let node_ref = NodeRef::<E>::new();
+    let _ = use_motion(node_ref, options);
+    node_ref
 }
 
-#[component]
-pub fn MotionSpan(
-    #[prop(optional)] initial: Option<Signal<MotionStyle>>,
-    #[prop(into)] animate: Signal<MotionStyle>,
-    #[prop(into, optional)] transition: MaybeProp<TransitionMap>,
-    #[prop(into, optional)] reduced_motion: MaybeProp<ReducedMotionConfig>,
-    #[prop(optional)] children: Option<ChildrenFn>,
-) -> impl IntoView {
-    let node_ref = NodeRef::<leptos::html::Span>::new();
-    let _motion = use_motion(
-        node_ref,
-        MotionOptions {
-            initial,
-            animate,
-            transition,
-            reduced_motion,
-        },
-    );
+macro_rules! motion_html_elements {
+    ($($name:ident => ($element:ty, $tag:ident)),+ $(,)?) => {
+        $(
+            #[component]
+            pub fn $name(
+                #[prop(optional)] initial: Option<Signal<MotionStyle>>,
+                #[prop(into)] animate: Signal<MotionStyle>,
+                #[prop(into, optional)] transition: MaybeProp<TransitionMap>,
+                #[prop(into, optional)] reduced_motion: MaybeProp<ReducedMotionConfig>,
+                #[prop(optional)] children: Option<ChildrenFn>,
+            ) -> impl IntoView {
+                let node_ref = prepare_motion_node::<$element>(MotionOptions {
+                    initial,
+                    animate,
+                    transition,
+                    reduced_motion,
+                });
 
-    view! {
-        <AttributeInterceptor let:attrs>
-            <span node_ref={node_ref} {..attrs}>{children.as_ref().map(|children| children())}</span>
-        </AttributeInterceptor>
-    }
+                view! {
+                    <AttributeInterceptor let:attrs>
+                        <$tag node_ref={node_ref} {..attrs}>
+                            {children.as_ref().map(|children| children())}
+                        </$tag>
+                    </AttributeInterceptor>
+                }
+            }
+        )+
+    };
 }
 
-#[component]
-pub fn MotionP(
-    #[prop(optional)] initial: Option<Signal<MotionStyle>>,
-    #[prop(into)] animate: Signal<MotionStyle>,
-    #[prop(into, optional)] transition: MaybeProp<TransitionMap>,
-    #[prop(into, optional)] reduced_motion: MaybeProp<ReducedMotionConfig>,
-    #[prop(optional)] children: Option<ChildrenFn>,
-) -> impl IntoView {
-    let node_ref = NodeRef::<leptos::html::P>::new();
-    let _motion = use_motion(
-        node_ref,
-        MotionOptions {
-            initial,
-            animate,
-            transition,
-            reduced_motion,
-        },
-    );
-
-    view! {
-        <AttributeInterceptor let:attrs>
-            <p node_ref={node_ref} {..attrs}>{children.as_ref().map(|children| children())}</p>
-        </AttributeInterceptor>
-    }
-}
-
-#[component]
-pub fn MotionButton(
-    #[prop(optional)] initial: Option<Signal<MotionStyle>>,
-    #[prop(into)] animate: Signal<MotionStyle>,
-    #[prop(into, optional)] transition: MaybeProp<TransitionMap>,
-    #[prop(into, optional)] reduced_motion: MaybeProp<ReducedMotionConfig>,
-    #[prop(optional)] children: Option<ChildrenFn>,
-) -> impl IntoView {
-    let node_ref = NodeRef::<leptos::html::Button>::new();
-    let _motion = use_motion(
-        node_ref,
-        MotionOptions {
-            initial,
-            animate,
-            transition,
-            reduced_motion,
-        },
-    );
-
-    view! {
-        <AttributeInterceptor let:attrs>
-            <button node_ref={node_ref} {..attrs}>{children.as_ref().map(|children| children())}</button>
-        </AttributeInterceptor>
-    }
-}
-
-#[component]
-pub fn MotionSection(
-    #[prop(optional)] initial: Option<Signal<MotionStyle>>,
-    #[prop(into)] animate: Signal<MotionStyle>,
-    #[prop(into, optional)] transition: MaybeProp<TransitionMap>,
-    #[prop(into, optional)] reduced_motion: MaybeProp<ReducedMotionConfig>,
-    #[prop(optional)] children: Option<ChildrenFn>,
-) -> impl IntoView {
-    let node_ref = NodeRef::<leptos::html::Section>::new();
-    let _motion = use_motion(
-        node_ref,
-        MotionOptions {
-            initial,
-            animate,
-            transition,
-            reduced_motion,
-        },
-    );
-
-    view! {
-        <AttributeInterceptor let:attrs>
-            <section node_ref={node_ref} {..attrs}>{children.as_ref().map(|children| children())}</section>
-        </AttributeInterceptor>
-    }
-}
-
-#[component]
-pub fn MotionMain(
-    #[prop(optional)] initial: Option<Signal<MotionStyle>>,
-    #[prop(into)] animate: Signal<MotionStyle>,
-    #[prop(into, optional)] transition: MaybeProp<TransitionMap>,
-    #[prop(into, optional)] reduced_motion: MaybeProp<ReducedMotionConfig>,
-    #[prop(optional)] children: Option<ChildrenFn>,
-) -> impl IntoView {
-    let node_ref = NodeRef::<leptos::html::Main>::new();
-    let _motion = use_motion(
-        node_ref,
-        MotionOptions {
-            initial,
-            animate,
-            transition,
-            reduced_motion,
-        },
-    );
-
-    view! {
-        <AttributeInterceptor let:attrs>
-            <main node_ref={node_ref} {..attrs}>{children.as_ref().map(|children| children())}</main>
-        </AttributeInterceptor>
-    }
-}
-
-#[component]
-pub fn MotionArticle(
-    #[prop(optional)] initial: Option<Signal<MotionStyle>>,
-    #[prop(into)] animate: Signal<MotionStyle>,
-    #[prop(into, optional)] transition: MaybeProp<TransitionMap>,
-    #[prop(into, optional)] reduced_motion: MaybeProp<ReducedMotionConfig>,
-    #[prop(optional)] children: Option<ChildrenFn>,
-) -> impl IntoView {
-    let node_ref = NodeRef::<leptos::html::Article>::new();
-    let _motion = use_motion(
-        node_ref,
-        MotionOptions {
-            initial,
-            animate,
-            transition,
-            reduced_motion,
-        },
-    );
-
-    view! {
-        <AttributeInterceptor let:attrs>
-            <article node_ref={node_ref} {..attrs}>{children.as_ref().map(|children| children())}</article>
-        </AttributeInterceptor>
-    }
-}
-
-#[component]
-pub fn MotionH1(
-    #[prop(optional)] initial: Option<Signal<MotionStyle>>,
-    #[prop(into)] animate: Signal<MotionStyle>,
-    #[prop(into, optional)] transition: MaybeProp<TransitionMap>,
-    #[prop(into, optional)] reduced_motion: MaybeProp<ReducedMotionConfig>,
-    #[prop(optional)] children: Option<ChildrenFn>,
-) -> impl IntoView {
-    let node_ref = NodeRef::<leptos::html::H1>::new();
-    let _motion = use_motion(
-        node_ref,
-        MotionOptions {
-            initial,
-            animate,
-            transition,
-            reduced_motion,
-        },
-    );
-
-    view! {
-        <AttributeInterceptor let:attrs>
-            <h1 node_ref={node_ref} {..attrs}>{children.as_ref().map(|children| children())}</h1>
-        </AttributeInterceptor>
-    }
-}
-
-#[component]
-pub fn MotionH3(
-    #[prop(optional)] initial: Option<Signal<MotionStyle>>,
-    #[prop(into)] animate: Signal<MotionStyle>,
-    #[prop(into, optional)] transition: MaybeProp<TransitionMap>,
-    #[prop(into, optional)] reduced_motion: MaybeProp<ReducedMotionConfig>,
-    #[prop(optional)] children: Option<ChildrenFn>,
-) -> impl IntoView {
-    let node_ref = NodeRef::<leptos::html::H3>::new();
-    let _motion = use_motion(
-        node_ref,
-        MotionOptions {
-            initial,
-            animate,
-            transition,
-            reduced_motion,
-        },
-    );
-
-    view! {
-        <AttributeInterceptor let:attrs>
-            <h3 node_ref={node_ref} {..attrs}>{children.as_ref().map(|children| children())}</h3>
-        </AttributeInterceptor>
-    }
+motion_html_elements! {
+    MotionA => (leptos::html::A, a),
+    MotionAside => (leptos::html::Aside, aside),
+    MotionBlockquote => (leptos::html::Blockquote, blockquote),
+    MotionCode => (leptos::html::Code, code),
+    MotionDetails => (leptos::html::Details, details),
+    MotionDiv => (leptos::html::Div, div),
+    MotionDl => (leptos::html::Dl, dl),
+    MotionEm => (leptos::html::Em, em),
+    MotionFigcaption => (leptos::html::Figcaption, figcaption),
+    MotionFigure => (leptos::html::Figure, figure),
+    MotionFooter => (leptos::html::Footer, footer),
+    MotionForm => (leptos::html::Form, form),
+    MotionFieldset => (leptos::html::Fieldset, fieldset),
+    MotionHeader => (leptos::html::Header, header),
+    MotionButton => (leptos::html::Button, button),
+    MotionArticle => (leptos::html::Article, article),
+    MotionH1 => (leptos::html::H1, h1),
+    MotionH2 => (leptos::html::H2, h2),
+    MotionH3 => (leptos::html::H3, h3),
+    MotionH4 => (leptos::html::H4, h4),
+    MotionH5 => (leptos::html::H5, h5),
+    MotionH6 => (leptos::html::H6, h6),
+    MotionLabel => (leptos::html::Label, label),
+    MotionLegend => (leptos::html::Legend, legend),
+    MotionLi => (leptos::html::Li, li),
+    MotionMain => (leptos::html::Main, main),
+    MotionNav => (leptos::html::Nav, nav),
+    MotionOl => (leptos::html::Ol, ol),
+    MotionP => (leptos::html::P, p),
+    MotionPre => (leptos::html::Pre, pre),
+    MotionSection => (leptos::html::Section, section),
+    MotionSmall => (leptos::html::Small, small),
+    MotionSpan => (leptos::html::Span, span),
+    MotionStrong => (leptos::html::Strong, strong),
+    MotionSummary => (leptos::html::Summary, summary),
+    MotionTextarea => (leptos::html::Textarea, textarea),
+    MotionUl => (leptos::html::Ul, ul)
 }
