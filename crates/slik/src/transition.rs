@@ -1,32 +1,52 @@
+//! Transition configuration types.
+
 use crate::driver::{Keyframe, KeyframeError, KeyframeTransition};
 use crate::easing::Easing;
 use crate::style::MotionProp;
 use std::error::Error;
 use std::fmt;
 
+/// Supported transition families.
 #[derive(Debug, Clone)]
 pub enum Transition {
+    /// A physics-based spring.
     Spring {
+        /// Spring stiffness coefficient.
         stiffness: f64,
+        /// Spring damping coefficient.
         damping: f64,
+        /// Spring mass. Must be greater than zero.
         mass: f64,
     },
+    /// A time-based tween with easing.
     Tween {
+        /// Duration in seconds.
         duration: f64,
+        /// Easing curve.
         easing: Easing,
     },
+    /// A keyframe sequence.
     Keyframes(KeyframeTransition),
 }
 
+/// Validation errors for spring and tween transition constructors.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TransitionError {
+    /// Spring stiffness was not finite.
     StiffnessNotFinite,
+    /// Spring stiffness was negative.
     StiffnessNegative,
+    /// Spring damping was not finite.
     DampingNotFinite,
+    /// Spring damping was negative.
     DampingNegative,
+    /// Spring mass was not finite.
     MassNotFinite,
+    /// Spring mass was zero or negative.
     MassNonPositive,
+    /// Tween duration was not finite.
     DurationNotFinite,
+    /// Tween duration was negative.
     DurationNegative,
 }
 
@@ -49,6 +69,7 @@ impl fmt::Display for TransitionError {
 impl Error for TransitionError {}
 
 impl Transition {
+    /// Returns the default spring transition used across the crate.
     pub fn spring() -> Self {
         Self::Spring {
             stiffness: 170.0,
@@ -57,6 +78,7 @@ impl Transition {
         }
     }
 
+    /// Returns a looser, more playful spring preset.
     pub fn spring_bouncy() -> Self {
         Self::Spring {
             stiffness: 120.0,
@@ -65,6 +87,7 @@ impl Transition {
         }
     }
 
+    /// Returns a slower, more damped spring preset.
     pub fn spring_gentle() -> Self {
         Self::Spring {
             stiffness: 170.0,
@@ -73,6 +96,7 @@ impl Transition {
         }
     }
 
+    /// Creates a validated custom spring transition.
     pub fn spring_custom(stiffness: f64, damping: f64, mass: f64) -> Result<Self, TransitionError> {
         validate_spring(stiffness, damping, mass)?;
         Ok(Self::Spring {
@@ -82,6 +106,7 @@ impl Transition {
         })
     }
 
+    /// Creates a validated tween transition.
     pub fn tween(duration_secs: f64, easing: Easing) -> Result<Self, TransitionError> {
         validate_tween(duration_secs)?;
         Ok(Self::Tween {
@@ -90,6 +115,7 @@ impl Transition {
         })
     }
 
+    /// Creates a keyframe transition.
     pub fn keyframes(keyframes: Vec<Keyframe>, duration_secs: f64) -> Result<Self, KeyframeError> {
         Ok(Self::Keyframes(KeyframeTransition::new(
             keyframes,
@@ -153,6 +179,8 @@ impl Default for Transition {
     }
 }
 
+/// Dense transition storage with a default transition plus optional per-property
+/// overrides.
 #[derive(Debug, Clone)]
 pub struct TransitionMap {
     default: Transition,
@@ -160,6 +188,8 @@ pub struct TransitionMap {
 }
 
 impl TransitionMap {
+    /// Creates a transition map with `default` used for every property unless
+    /// overridden.
     pub fn new(default: Transition) -> Self {
         Self {
             default,
@@ -167,11 +197,13 @@ impl TransitionMap {
         }
     }
 
+    /// Overrides the transition for a specific property.
     pub fn with(mut self, prop: MotionProp, transition: Transition) -> Self {
         self.per_prop[prop.index()] = Some(transition);
         self
     }
 
+    /// Resolves the transition to use for `prop`.
     pub fn for_prop(&self, prop: MotionProp) -> Transition {
         self.per_prop[prop.index()]
             .clone()

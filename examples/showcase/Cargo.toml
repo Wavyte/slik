@@ -1,11 +1,8 @@
 [package]
 name = "showcase"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 publish = false
-
-[profile.dev]
-debug = 0
 
 [dependencies]
 slik = { path = "../../crates/slik", features = ["csr"] }

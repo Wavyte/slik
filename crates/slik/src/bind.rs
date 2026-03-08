@@ -1,3 +1,14 @@
+//! Binder-first motion APIs.
+//!
+//! This module is the core v0.2 public surface. It binds a typed Leptos
+//! [`NodeRef`](leptos::prelude::NodeRef) to one
+//! [`MotionStyle`](crate::style::MotionStyle) target signal and keeps the
+//! underlying DOM node's inline `opacity`, `transform`, and
+//! `will-change` properties in sync with animated values.
+
+/// Returns the browser's `prefers-reduced-motion` setting as a reactive signal.
+///
+/// On non-wasm targets this always resolves to `false`.
 pub use crate::reduced_motion::use_reduced_motion;
 
 use crate::dom_target::style_for_node;
@@ -10,14 +21,22 @@ use leptos::prelude::*;
 use leptos::tachys::html::element::ElementType;
 use wasm_bindgen::{JsCast, JsValue};
 
+/// Controls how [`use_motion`] responds to reduced-motion preferences.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum ReducedMotionConfig {
+    /// Respect the browser's `prefers-reduced-motion` media query.
     #[default]
     Auto,
+    /// Always disable animation and snap directly to the latest target.
     Always,
+    /// Always animate, ignoring the browser preference.
     Never,
 }
 
+/// Dense storage for the [`MotionValue`] instances created by [`use_motion`].
+///
+/// Each property in [`MotionProp`] gets one scalar motion value, regardless of
+/// whether the property is currently owned by the bound style.
 #[derive(Clone, Copy)]
 pub struct MotionValues {
     values: [MotionValue; MotionProp::COUNT],
@@ -28,24 +47,49 @@ impl MotionValues {
         Self { values }
     }
 
+    /// Returns the scalar motion value for a specific property slot.
     pub fn get(&self, prop: MotionProp) -> MotionValue {
         self.values[prop.index()]
     }
 }
 
+/// Handle returned by [`use_motion`].
+///
+/// This currently exposes the underlying per-property motion values so callers
+/// can observe or imperatively control them when needed.
 #[derive(Clone, Copy)]
 pub struct MotionHandle {
+    /// Dense motion values allocated for the binding.
     pub values: MotionValues,
 }
 
+/// Options used to configure a motion binding.
 #[derive(Clone, Copy)]
 pub struct MotionOptions {
+    /// Initial owned style snapshot.
+    ///
+    /// When omitted, the first `animate` snapshot seeds the binding and no mount
+    /// animation occurs.
     pub initial: Option<Signal<MotionStyle>>,
+    /// Reactive target style snapshot.
     pub animate: Signal<MotionStyle>,
+    /// Default and per-property transition configuration.
     pub transition: MaybeProp<TransitionMap>,
+    /// Reduced-motion policy for this binding.
     pub reduced_motion: MaybeProp<ReducedMotionConfig>,
 }
 
+/// Binds motion styles to a typed Leptos node reference.
+///
+/// The binder owns inline `opacity`, `transform`, and `will-change` on the bound
+/// node. It currently supports HTML and SVG elements with writable inline styles.
+///
+/// `initial` seeds owned properties. If it is omitted, the first `animate`
+/// snapshot becomes the initial value and the binding starts in-place.
+///
+/// Properties become owned the first time they appear in either `initial` or
+/// `animate`. Once owned, the binder continues to write that property's current
+/// animated value until the binding is destroyed.
 pub fn use_motion<E>(node_ref: NodeRef<E>, options: MotionOptions) -> MotionHandle
 where
     E: ElementType + 'static,

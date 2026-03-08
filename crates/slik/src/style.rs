@@ -1,11 +1,21 @@
+//! Motion style types.
+
+/// Supported motion properties.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum MotionProp {
+    /// Maps to CSS `opacity`.
     Opacity,
+    /// Maps to `translateX(...)`.
     X,
+    /// Maps to `translateY(...)`.
     Y,
+    /// Maps to uniform scale.
     Scale,
+    /// Multiplies the x-axis scale.
     ScaleX,
+    /// Multiplies the y-axis scale.
     ScaleY,
+    /// Maps to `rotate(...)`.
     Rotate,
 }
 
@@ -62,7 +72,9 @@ const PROP_META: [PropMeta; MotionProp::COUNT] = [
 ];
 
 impl MotionProp {
+    /// Number of supported motion properties.
     pub const COUNT: usize = 7;
+    /// All supported properties in dense-storage order.
     pub const ALL: [Self; Self::COUNT] = [
         Self::Opacity,
         Self::X,
@@ -73,6 +85,7 @@ impl MotionProp {
         Self::Rotate,
     ];
 
+    /// Returns this property's dense-storage index.
     pub const fn index(self) -> usize {
         match self {
             Self::Opacity => 0,
@@ -85,6 +98,7 @@ impl MotionProp {
         }
     }
 
+    /// Returns the property's default value when it is not explicitly present.
     pub const fn default_value(self) -> f64 {
         PROP_META[self.index()].default
     }
@@ -93,63 +107,80 @@ impl MotionProp {
     }
 }
 
+/// Sparse, builder-style motion target definition.
+///
+/// A `MotionStyle` only stores properties that are explicitly present. Missing
+/// properties are treated as absent, not as implicit resets.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct MotionStyle {
     values: [Option<f64>; MotionProp::COUNT],
 }
 
 impl MotionStyle {
+    /// Creates an empty motion style.
     pub fn new() -> Self {
         Self::default()
     }
 
+    /// Sets a specific motion property.
     pub fn set(mut self, prop: MotionProp, value: f64) -> Self {
         self.values[prop.index()] = Some(value);
         self
     }
 
+    /// Returns the explicitly stored value for `prop`, if present.
     pub fn get(&self, prop: MotionProp) -> Option<f64> {
         self.values[prop.index()]
     }
 
+    /// Returns `true` when `prop` is explicitly present in the style.
     pub fn contains(&self, prop: MotionProp) -> bool {
         self.get(prop).is_some()
     }
 
+    /// Returns the explicit value for `prop`, or the property's default.
     pub fn value_or_default(&self, prop: MotionProp) -> f64 {
         self.get(prop).unwrap_or_else(|| prop.default_value())
     }
 
+    /// Iterates over explicitly present properties in dense-storage order.
     pub fn iter_present(&self) -> impl Iterator<Item = (MotionProp, f64)> + '_ {
         MotionProp::ALL
             .into_iter()
             .filter_map(|prop| self.get(prop).map(|value| (prop, value)))
     }
 
+    /// Sets [`MotionProp::Opacity`].
     pub fn opacity(self, v: f64) -> Self {
         self.set(MotionProp::Opacity, v)
     }
 
+    /// Sets [`MotionProp::X`].
     pub fn x(self, v: f64) -> Self {
         self.set(MotionProp::X, v)
     }
 
+    /// Sets [`MotionProp::Y`].
     pub fn y(self, v: f64) -> Self {
         self.set(MotionProp::Y, v)
     }
 
+    /// Sets [`MotionProp::Scale`].
     pub fn scale(self, v: f64) -> Self {
         self.set(MotionProp::Scale, v)
     }
 
+    /// Sets [`MotionProp::ScaleX`].
     pub fn scale_x(self, v: f64) -> Self {
         self.set(MotionProp::ScaleX, v)
     }
 
+    /// Sets [`MotionProp::ScaleY`].
     pub fn scale_y(self, v: f64) -> Self {
         self.set(MotionProp::ScaleY, v)
     }
 
+    /// Sets [`MotionProp::Rotate`].
     pub fn rotate(self, v: f64) -> Self {
         self.set(MotionProp::Rotate, v)
     }

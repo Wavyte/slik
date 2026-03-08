@@ -1,3 +1,10 @@
+//! Motion-enabled HTML component sugar.
+//!
+//! These components are thin wrappers over [`crate::bind::use_motion`]. They do
+//! not add a separate runtime or wrapper element. Attributes are forwarded via
+//! Leptos' `AttributeInterceptor`, so element attributes should be passed with
+//! `attr:*` when needed.
+
 use crate::bind::{use_motion, MotionOptions, ReducedMotionConfig};
 use crate::style::MotionStyle;
 use crate::transition::TransitionMap;
@@ -19,12 +26,22 @@ where
 macro_rules! motion_html_elements {
     ($($name:ident => ($element:ty, $tag:ident)),+ $(,)?) => {
         $(
+            /// Motion-enabled HTML component generated over
+            /// [`crate::bind::use_motion`].
+            ///
+            /// Motion-specific props are handled directly by the component, and
+            /// additional DOM attributes can be forwarded with `attr:*`.
             #[component]
             pub fn $name(
+                /// Initial owned style snapshot.
                 #[prop(optional)] initial: Option<Signal<MotionStyle>>,
+                /// Reactive target style snapshot.
                 #[prop(into)] animate: Signal<MotionStyle>,
+                /// Default and per-property transition configuration.
                 #[prop(into, optional)] transition: MaybeProp<TransitionMap>,
+                /// Reduced-motion policy for this motion binding.
                 #[prop(into, optional)] reduced_motion: MaybeProp<ReducedMotionConfig>,
+                /// Child content rendered inside the element.
                 #[prop(optional)] children: Option<ChildrenFn>,
             ) -> impl IntoView {
                 let node_ref = prepare_motion_node::<$element>(MotionOptions {

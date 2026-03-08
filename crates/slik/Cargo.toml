@@ -1,8 +1,8 @@
 [package]
 name = "slik"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
-description = "A motion.dev-inspired animation framework for Leptos"
+description = "A binder-first Motion-inspired animation framework for Leptos"
 license = "MIT"
 readme = "../../README.md"
 homepage = "https://wavyte.com"
@@ -31,9 +31,6 @@ js-sys = "0.3"
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
 wasm-bindgen-test = "0.3"
 wasm-bindgen-futures = "0.4"
-
-[profile.dev]
-debug = 0
 
 [features]
 csr = ["leptos/csr"]

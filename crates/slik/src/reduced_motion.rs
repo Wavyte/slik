@@ -1,3 +1,5 @@
+//! Shared reduced-motion service.
+
 use leptos::prelude::*;
 
 #[cfg(target_arch = "wasm32")]
@@ -14,6 +16,10 @@ struct ReducedMotionService {
     _callback: Option<Closure<dyn FnMut(web_sys::Event)>>,
 }
 
+/// Returns a reactive signal that mirrors the browser's
+/// `prefers-reduced-motion` media query.
+///
+/// On non-wasm targets the signal always resolves to `false`.
 pub fn use_reduced_motion() -> Signal<bool> {
     #[cfg(not(target_arch = "wasm32"))]
     {

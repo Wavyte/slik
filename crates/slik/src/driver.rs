@@ -1,3 +1,9 @@
+//! Driver-level animation types.
+//!
+//! Most applications use [`crate::transition::Transition`] directly. This module
+//! is public because it defines the keyframe types that feed into that transition
+//! surface.
+
 #![cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
 
 use crate::bezier::CubicBezier;
@@ -223,21 +229,30 @@ impl TweenState {
     }
 }
 
+/// A value placeholder used inside keyframes.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum KeyframeValue {
+    /// Resolve to the current sampled value when the animation starts.
     Current,
+    /// Resolve to the latest requested target value when the animation starts.
     Target,
+    /// Use an explicit numeric value.
     Absolute(f64),
 }
 
+/// One entry in a keyframe transition.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Keyframe {
+    /// Normalized position in the sequence, from `0.0` to `1.0`.
     pub offset: f64,
+    /// Value source for this keyframe.
     pub value: KeyframeValue,
+    /// Easing used to reach this keyframe from the previous one.
     pub easing: Easing,
 }
 
 impl Keyframe {
+    /// Creates a keyframe resolved from the current sampled value.
     pub fn current(offset: f64) -> Self {
         Self {
             offset,
@@ -246,6 +261,7 @@ impl Keyframe {
         }
     }
 
+    /// Creates a keyframe resolved from the requested target value.
     pub fn target(offset: f64) -> Self {
         Self {
             offset,
@@ -254,6 +270,7 @@ impl Keyframe {
         }
     }
 
+    /// Creates a keyframe with an explicit numeric value.
     pub fn absolute(offset: f64, value: f64) -> Self {
         Self {
             offset,
@@ -262,23 +279,35 @@ impl Keyframe {
         }
     }
 
+    /// Sets the easing used to approach this keyframe.
     pub fn ease(mut self, easing: Easing) -> Self {
         self.easing = easing;
         self
     }
 }
 
+/// Validation errors for keyframe transitions.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum KeyframeError {
+    /// The provided keyframe list was empty.
     Empty,
+    /// Fewer than two keyframes were provided.
     NeedsAtLeastTwo,
+    /// Duration was not finite or was negative.
     DurationMustBeFinite,
+    /// At least one offset was not finite.
     OffsetNotFinite,
+    /// At least one offset was outside `0.0..=1.0`.
     OffsetOutOfRange,
+    /// The first keyframe did not start at `0.0`.
     OffsetsMustStartAtZero,
+    /// The final keyframe did not end at `1.0`.
     OffsetsMustEndAtOne,
+    /// Offsets were not strictly increasing.
     OffsetsMustIncrease,
+    /// An absolute keyframe contained a non-finite numeric value.
     AbsoluteValueNotFinite,
+    /// The final keyframe did not target `KeyframeValue::Target`.
     FinalKeyframeMustTarget,
 }
 
@@ -302,6 +331,7 @@ impl fmt::Display for KeyframeError {
 
 impl Error for KeyframeError {}
 
+/// A validated keyframe transition definition.
 #[derive(Debug, Clone)]
 pub struct KeyframeTransition {
     keyframes: Vec<Keyframe>,
@@ -309,6 +339,7 @@ pub struct KeyframeTransition {
 }
 
 impl KeyframeTransition {
+    /// Validates and creates a keyframe transition.
     pub fn new(mut keyframes: Vec<Keyframe>, duration: f64) -> Result<Self, KeyframeError> {
         if keyframes.is_empty() {
             return Err(KeyframeError::Empty);
@@ -362,10 +393,12 @@ impl KeyframeTransition {
         })
     }
 
+    /// Returns the keyframe sequence duration in seconds.
     pub fn duration(&self) -> f64 {
         self.duration
     }
 
+    /// Returns the validated keyframe list.
     pub fn keyframes(&self) -> &[Keyframe] {
         &self.keyframes
     }

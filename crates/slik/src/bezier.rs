@@ -1,3 +1,6 @@
+//! Cubic-bezier curve solving utilities.
+
+/// A cubic-bezier timing curve.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct CubicBezier {
     x1: f64,
@@ -12,14 +15,17 @@ const SUBDIVISION_PRECISION: f64 = 1e-7;
 const SUBDIVISION_MAX_ITERS: usize = 12;
 
 impl CubicBezier {
+    /// Creates a new cubic-bezier curve from control points.
     pub const fn new(x1: f64, y1: f64, x2: f64, y2: f64) -> Self {
         Self { x1, y1, x2, y2 }
     }
 
+    /// Returns `true` when the curve is equivalent to linear interpolation.
     pub fn is_linear(&self) -> bool {
         (self.x1 - self.y1).abs() < 1e-6 && (self.x2 - self.y2).abs() < 1e-6
     }
 
+    /// Solves the curve's y-value for a normalized x-value in `[0.0, 1.0]`.
     pub fn solve(&self, x: f64) -> f64 {
         if x <= 0.0 {
             return 0.0;
