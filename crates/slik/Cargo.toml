@@ -6,6 +6,7 @@ description = "A binder-first Motion-inspired animation framework for Leptos"
 license = "MIT"
 readme = "../../README.md"
 homepage = "https://wavyte.com"
+repository = "https://github.com/Wavyte/slik"
 keywords = ["leptos", "animation", "spring", "motion", "wasm"]
 
 [package.metadata.docs.rs]
